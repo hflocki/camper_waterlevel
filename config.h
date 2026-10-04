@@ -21,6 +21,16 @@
 #define CONFIG_FILE           "/config.json"[cite: 2]
 #define OTA_HOSTNAME          "camper-waterlevel"
 
+#define MAX_CALIB_POINTS      15     // Max. 15 Matrix-Messpunkte
+
+// ============================================================
+// DYNAMISCHE KALIBRIERUNGSMATRIX
+// ============================================================
+struct CalibPoint {
+    float volt;
+    float liter;
+};
+
 // ============================================================
 // CONFIGURATION STRUCT
 // ============================================================
@@ -38,6 +48,10 @@ struct AppConfig {
     
     bool filter_active;
     bool mqtt_fast;
+
+    // Dynamische Volt-zu-Liter-Matrix
+    CalibPoint calibTable[MAX_CALIB_POINTS];
+    uint8_t calibCount;
 };
 
 // ============================================================
@@ -46,7 +60,7 @@ struct AppConfig {
 struct SensorData {
     float raw_voltage;     // Rohspannung vom ADC
     float avg_voltage;     // Gefilterte Spannung
-    float liters;          // Berechneter Inhalt in Litern (0-100L)
+    float liters;          // Berechneter Inhalt in Litern
     float percent;         // Berechneter Inhalt in % (0-100%)
     bool sensor_ok;
     int rssi;
