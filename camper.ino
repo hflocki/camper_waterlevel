@@ -79,13 +79,10 @@ void loop() {
     wifiManagerLoop();
     ArduinoOTA.handle();
     
-    // Messschleife ausführen
     sensorLoop();
-    
     mqttLoop();
     webserverLoop();
     
-    // Serial Befehle für Tests & Debugging
     if (Serial.available()) {
         String cmd = Serial.readStringUntil('\n');
         cmd.trim();
@@ -101,7 +98,6 @@ void loop() {
         }
     }
     
-    // Periodische Statusausgabe im Serial Monitor (alle 10 Sekunden)
     if (millis() - lastStatusPrint > 10000) {
         lastStatusPrint = millis();
         Serial.printf("[STATUS] Volt:%.3fV Liter:%.1fL (%0.0f%%) WiFi:%s MQTT:%s Heap:%d\n",
