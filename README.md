@@ -75,6 +75,7 @@ static const CalibPoint calibTable[] = {
     {2.178f,  80.0f},
     {2.386f, 100.0f}
 };
+```
 
 ## Home Assistant Integration
 
