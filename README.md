@@ -1,6 +1,6 @@
 # Camper Waterlevel – ESP32 Frischwasser Levelsensor
 
-Präziser DIY-Frischwassersensor für Wohnmobile und Wohnwagen mit Votronic Tankgeber, interaktiver Web-UI, Echtzeit-Tankanzeige, Glättungsfilter und automatischer Home-Assistant-Anbindung über MQTT.
+Präziser DIY-Frischwassersensor für Wohnmobile und Wohnwagen mit Votronic Tankgeber, interaktiver Web-UI inklusive dynamischem Matrix-Editor, Echtzeit-Tankanzeige, Glättungsfilter und automatischer Home-Assistant-Anbindung über MQTT.
 
 ---
 
@@ -45,49 +45,39 @@ Dieses Projekt basiert konzeptionell und strukturell auf dem Open-Source-Projekt
 
 ## Features
 
-- ✅ **Präzise Füllstandsmessung:** Liest die analoge Spannung des Votronic-Sensors am ADC-Pin (GPIO0) aus.
-- ✅ **Multi-Punkt-Kalibrierung:** Lineare Interpolation von Spannungswerten zu echten Literangaben (0–100 Litern).
-- ✅ **Glättungsfilter (Moving Average):** Filtert Spannungsschwankungen und Rauschen des Bordnetzes/Buck-Converters über 15 Messwerte.
+- ✅ **Präzise Füllstandsmessung:** Liest die analoge Spannung des Votronic-Sensors am ADC-Pin (GPIO0) aus[cite: 1].
+- ✅ **Dynamische Multi-Punkt-Kalibrierung:** Volt-zu-Liter-Matrix lässt sich direkt über die Web-UI (Tab `📊 Matrix`) anpassen, erweitern oder löschen – **kein Neu-Flashen nötig!**
+- ✅ **Glättungsfilter (Moving Average):** Filtert Spannungsschwankungen und Rauschen des Bordnetzes/Buck-Converters über 15 Messwerte[cite: 1].
 - ✅ **WiFi Manager & AP Fallback:** Automatische Verbindung mit dem WLAN. Bei fehlendem Netz wird ein eigener Access Point (`Camper-Waterlevel-AP`) mit IP `192.168.4.1` gestartet.
-- ✅ **MQTT & Home Assistant Auto-Discovery:** Automatische Erkennung in Home Assistant inkl. Last-Will-Entdeckung (`camper/waterlevel`).
-- ✅ **Echtzeit Web-UI:** Integrierte responsive Web-Oberfläche mit visueller Tankanzeige via WebSocket.
+- ✅ **MQTT & Home Assistant Auto-Discovery:** Automatische Erkennung in Home Assistant inkl. Last-Will-Entdeckung (`camper/waterlevel`)[cite: 3].
+- ✅ **Echtzeit Web-UI:** Integrierte responsive Web-Oberfläche mit visueller Tankanzeige via WebSocket[cite: 8].
 
 ---
 
-## Tankvolumen & Spannungs-Kalibrierung anpassen
+## Volt-zu-Liter Kalibrierungsmatrix (Web-UI)
 
-Die Umrechnung von der gemessenen Sensor-Spannung (Volt) in Liter erfolgt über eine Multi-Punkt-Kalibrierungstabelle mit linearer Interpolation in der Datei `sensor.cpp`.
+Die Füllstandsberechnung nutzt eine Tabelle aus Spannungswerten (Volt) und dem zugehörigen Tankinhalt (Liter). Die Zwischenwerte werden automatisch linear interpoliert.
 
-### Kalibrierungstabelle ändern (`sensor.cpp`)
+1. Öffne die Web-UI im Browser oder auf einem Android-Autoradio.
+2. Gehe auf den Tab **📊 Matrix**.
+3. Du kannst bestehende Punkte anpassen, mit **+ Punkt hinzufügen** neue Messpunkte anlegen oder Einträge löschen.
+4. Nach dem Klick auf **💾 Matrix Speichern** wird die Tabelle automatisch nach Spannung sortiert und dauerhaft in der `config.json` auf dem ESP32 (LittleFS) abgelegt[cite: 8].
 
-Öffne `sensor.cpp` und passe das Array `calibTable` an dein Sensor-Modell und dein Tankvolumen an:
+> **Werkseinstellung:** Standardmäßig sind 9 Votronic-Referenzpunkte hinterlegt (0.130 V = 0 L bis 2.386 V = 100 L)[cite: 1].
 
-```cpp
-static const CalibPoint calibTable[] = {
-    // Volt , Liter
-    {0.130f,   0.0f},
-    {0.137f,  10.0f},
-    {0.973f,  20.0f},
-    {1.040f,  30.0f},
-    {1.350f,  40.0f},
-    {1.515f,  50.0f},
-    {1.770f,  60.0f},
-    {2.178f,  80.0f},
-    {2.386f, 100.0f}
-};
-```
+---
 
 ## Home Assistant Integration
 
-Das Modul meldet sich automatisch über MQTT Discovery in Home Assistant an und stellt folgende Entitäten bereit:
+Das Modul meldet sich automatisch über MQTT Discovery in Home Assistant an und stellt folgende Entitäten bereit[cite: 3]:
 
 - **Sensoren:**
   - `Frischwasser Inhalt` (Liter)
   - `Frischwasser Prozent` (%)
   - `Tank Spannung` (Volt)
-  - `WLAN Signal` (dBm)
+  - `WLAN Signal` (dBm)[cite: 3]
 - **Schalter:**
-  - `Glättungsfilter` (Ein / Aus)
+  - `Glättungsfilter` (Ein / Aus)[cite: 3]
 
 ---
 
@@ -95,19 +85,19 @@ Das Modul meldet sich automatisch über MQTT Discovery in Home Assistant an und 
 
 | Topic | Typ | Beschreibung |
 | --- | --- | --- |
-| `.../voltage` | Sensor | Aktuelle gefilterte Spannung in Volt |
-| `.../liters` | Sensor | Berechneter Tankinhalt in Litern (0–100 L) |
+| `.../voltage` | Sensor | Aktuelle gefilterte Spannung in Volt[cite: 3] |
+| `.../liters` | Sensor | Berechneter Tankinhalt in Litern |
 | `.../percent` | Sensor | Füllstand in Prozent (0–100 %) |
-| `.../rssi` | Sensor | WLAN Signalstärke (dBm) |
-| `.../status` | LWT | Status des Moduls (`online` / `offline`) |
-| `.../filter_active` | State | Status des Moving-Average-Filters (`ON` / `OFF`) |
-| `.../cmd/filter/set` | Command | Filter umschalten (`ON` / `OFF` / `toggle`) |
+| `.../rssi` | Sensor | WLAN Signalstärke (dBm)[cite: 3] |
+| `.../status` | LWT | Status des Moduls (`online` / `offline`)[cite: 3] |
+| `.../filter_active` | State | Status des Moving-Average-Filters (`ON` / `OFF`)[cite: 3] |
+| `.../cmd/filter/set` | Command | Filter umschalten (`ON` / `OFF` / `toggle`)[cite: 3] |
 
 ---
 
 ## Erstbenutzung
 
-1. **Flashen:** Code sowie den `data/`-Ordner (LittleFS Upload für die `index.html`) auf den ESP32 flashen.
+1. **Flashen:** Code (`camper.ino`) sowie den `data/`-Ordner (LittleFS Upload für die `index.html`) auf den ESP32 flashen[cite: 8].
 2. **Erstverbindung:** Wenn noch kein WLAN konfiguriert ist, startet der ESP32 den Access Point `Camper-Waterlevel-AP` (Passwort: `camperlevel`).
 3. **Konfiguration:** Verbinde dich mit dem Access Point, öffne `http://192.168.4.1` im Browser und trage im Tab **📶 WiFi** deine WLAN-Zugangsdaten sowie unter **⚙️ MQTT** deinen MQTT-Broker ein.
 4. **Speichern & Neustart:** Nach dem Speichern startet das Modul neu und verbindet sich automatisch mit deinem Netzwerk.
@@ -118,10 +108,11 @@ Das Modul meldet sich automatisch über MQTT Discovery in Home Assistant an und 
 
 ```text
 .
-├── data/                  – Dateisystem für LittleFS (enthält index.html)
+├── data/
+│   └── index.html         – Responsive Web-Oberfläche mit Matrix-Editor (LittleFS)
 ├── config.h               – Systemkonfiguration & Datenstrukturen
 ├── mqtt_ha.h / .cpp       – MQTT Client & Home Assistant Auto-Discovery
-├── sensor.h / .cpp        – ADC Spannungsmessung & Linear-Kalibrierung (Volt zu Liter)
+├── sensor.h / .cpp        – ADC Spannungsmessung & dynamische Interpolation
 ├── webserver.h / .cpp     – Webserver, REST-API & WebSocket Broadcast
 ├── wifi_manager.h / .cpp  – WLAN-Verbindungssteuerung & AP-Fallback
 └── camper.ino             – Hauptsketch (Setup & Hauptschleife)
