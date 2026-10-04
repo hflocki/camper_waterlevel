@@ -166,7 +166,7 @@ body {
             </div>
             <div class="form-row">
                 <div class="form-group"><label>Benutzer</label><input type="text" id="cfg-mqtt-user"></div>
-                <div class="form-group"><label>Passwort</label><input type="password" id="cfg-mqtt-pass"></div>
+                <div class="form-group"><label>Passwort</label><input type="password" id="cfg-mqtt-pass" placeholder="(unverändert)" autocomplete="new-password"></div>
             </div>
             <div class="form-group"><label>Topic-Prefix</label><input type="text" id="cfg-mqtt-prefix" value="camper/waterlevel"></div>
         </div>
@@ -186,7 +186,7 @@ body {
         <div class="card">
             <div class="card-title">WLAN-Verbindung</div>
             <div class="form-group"><label>SSID</label><input type="text" id="cfg-wifi-ssid"></div>
-            <div class="form-group"><label>Passwort</label><input type="password" id="cfg-wifi-pass"></div>
+            <div class="form-group"><label>Passwort</label><input type="password" id="cfg-wifi-pass" placeholder="(unverändert)" autocomplete="new-password"></div>
         </div>
 
         <div class="btn-row"><button class="btn btn-primary" onclick="saveWifi()">💾 Speichern & Verbinden</button></div>
@@ -197,6 +197,7 @@ body {
 </div>
 
 <script>
+const MAX_CALIB_POINTS = 15;
 let ws = null;
 let calibData = [];
 
@@ -213,7 +214,7 @@ function connectWS() {
     const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     ws = new WebSocket(proto + '//' + location.host + '/ws');
     ws.onmessage = (evt) => {
-        try { updateLiveData(JSON.parse(evt.data)); } catch(e) {}
+        try { updateLiveData(JSON.parse(evt.data)); } catch (e) {}
     };
     ws.onclose = () => { setTimeout(connectWS, 3000); };
 }
@@ -224,45 +225,60 @@ function updateLiveData(d) {
     document.getElementById('v-percent').textContent = Math.round(pct) + '%';
     document.getElementById('v-liters').textContent = (d.liters || 0).toFixed(1);
     document.getElementById('v-voltage').textContent = (d.voltage || 0).toFixed(3);
-    
+
     document.getElementById('dot-wifi').className = 'status-dot ' + (d.wifi === 'Verbunden' ? 'active' : '');
     document.getElementById('dot-mqtt').className = 'status-dot ' + (d.mqtt ? 'active' : '');
     document.getElementById('wifi-state').textContent = d.wifi;
     document.getElementById('wifi-rssi').textContent = d.rssi ? d.rssi + ' dBm' : '--';
 }
 
+// POST a (partial) config object; throws if the device rejects it
+async function postConfig(obj) {
+    const resp = await fetch('/api/config', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(obj)
+    });
+    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+}
+
 async function loadSetup() {
     try {
         const resp = await fetch('/api/config');
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const cfg = await resp.json();
-        
+
+        // Passwords are never sent by the device; the fields stay empty on purpose
         document.getElementById('cfg-mqtt-server').value = cfg.mqtt_server || '';
         document.getElementById('cfg-mqtt-port').value = cfg.mqtt_port || 1883;
         document.getElementById('cfg-mqtt-user').value = cfg.mqtt_user || '';
-        document.getElementById('cfg-mqtt-pass').value = cfg.mqtt_pass || '';
         document.getElementById('cfg-mqtt-prefix').value = cfg.mqtt_prefix || 'camper/waterlevel';
         document.getElementById('cfg-wifi-ssid').value = cfg.wifi_ssid || '';
-        document.getElementById('cfg-wifi-pass').value = cfg.wifi_pass || '';
-        
+
         calibData = cfg.calib || [];
         renderMatrix();
-    } catch(e) { showToast('Fehler beim Laden'); }
+    } catch (e) { showToast('Fehler beim Laden'); }
 }
 
 function renderMatrix() {
     const tbody = document.getElementById('matrix-rows');
-    tbody.innerHTML = '';
+    let html = '';
     calibData.forEach((pt, idx) => {
-        tbody.innerHTML += `
+        html += `
             <tr>
                 <td><input type="number" step="0.001" value="${pt.v}" onchange="calibData[${idx}].v = parseFloat(this.value)"></td>
-                <td><input type="number" step="1" value="${pt.l}" onchange="calibData[${idx}].l = parseFloat(this.value)"></td>
+                <td><input type="number" step="0.1" value="${pt.l}" onchange="calibData[${idx}].l = parseFloat(this.value)"></td>
                 <td><button class="btn btn-danger" style="padding:4px 8px;" onclick="deleteMatrixRow(${idx})">X</button></td>
             </tr>`;
     });
+    tbody.innerHTML = html;
 }
 
 function addMatrixRow() {
+    if (calibData.length >= MAX_CALIB_POINTS) {
+        showToast('Maximal ' + MAX_CALIB_POINTS + ' Punkte');
+        return;
+    }
     calibData.push({v: 0.0, l: 0.0});
     renderMatrix();
 }
@@ -273,46 +289,59 @@ function deleteMatrixRow(idx) {
 }
 
 async function saveMatrix() {
-    calibData.sort((a, b) => a.v - b.v);
+    const clean = calibData.filter(p => Number.isFinite(p.v) && Number.isFinite(p.l));
+    if (clean.length < 2) {
+        showToast('Mindestens 2 gültige Punkte nötig');
+        return;
+    }
+    clean.sort((a, b) => a.v - b.v);
     try {
-        await fetch('/api/config', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({calib: calibData})
-        });
+        await postConfig({calib: clean});
+        calibData = clean;
         showToast('✓ Matrix gespeichert');
         renderMatrix();
-    } catch(e) { showToast('Fehler beim Speichern'); }
+    } catch (e) { showToast('Fehler beim Speichern'); }
 }
 
 async function saveSetup() {
     const cfg = {
-        mqtt_server: document.getElementById('cfg-mqtt-server').value,
-        mqtt_port: parseInt(document.getElementById('cfg-mqtt-port').value),
+        mqtt_server: document.getElementById('cfg-mqtt-server').value.trim(),
+        mqtt_port: parseInt(document.getElementById('cfg-mqtt-port').value) || 1883,
         mqtt_user: document.getElementById('cfg-mqtt-user').value,
-        mqtt_pass: document.getElementById('cfg-mqtt-pass').value,
-        mqtt_prefix: document.getElementById('cfg-mqtt-prefix').value
+        mqtt_prefix: document.getElementById('cfg-mqtt-prefix').value.trim()
     };
+    // An empty password field means "keep the stored password"
+    const pass = document.getElementById('cfg-mqtt-pass').value;
+    if (pass) cfg.mqtt_pass = pass;
+
     try {
-        await fetch('/api/config', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(cfg) });
-        showToast('✓ MQTT gespeichert');
-    } catch(e) { showToast('Fehler beim Speichern'); }
+        await postConfig(cfg);
+        // MQTT settings are applied at boot, so restart the device
+        showToast('✓ MQTT gespeichert - Neustart...');
+        setTimeout(() => restartDevice(), 1500);
+    } catch (e) { showToast('Fehler beim Speichern'); }
 }
 
 async function saveWifi() {
     const cfg = {
-        wifi_ssid: document.getElementById('cfg-wifi-ssid').value,
-        wifi_pass: document.getElementById('cfg-wifi-pass').value
+        wifi_ssid: document.getElementById('cfg-wifi-ssid').value
     };
+    // An empty password field means "keep the stored password"
+    const pass = document.getElementById('cfg-wifi-pass').value;
+    if (pass) cfg.wifi_pass = pass;
+
     try {
-        await fetch('/api/config', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(cfg) });
+        await postConfig(cfg);
         showToast('✓ WiFi gespeichert - Neustart...');
         setTimeout(() => restartDevice(), 1500);
-    } catch(e) { showToast('Fehler beim Speichern'); }
+    } catch (e) { showToast('Fehler beim Speichern'); }
 }
 
 async function restartDevice() {
-    try { await fetch('/api/restart', { method: 'POST' }); showToast('Gerät startet neu...'); } catch(e) {}
+    try {
+        await fetch('/api/restart', { method: 'POST' });
+        showToast('Gerät startet neu...');
+    } catch (e) {}
 }
 
 function showToast(msg) {
