@@ -54,6 +54,28 @@ Dieses Projekt basiert konzeptionell und strukturell auf dem Open-Source-Projekt
 
 ---
 
+## Tankvolumen & Spannungs-Kalibrierung anpassen
+
+Die Umrechnung von der gemessenen Sensor-Spannung (Volt) in Liter erfolgt über eine Multi-Punkt-Kalibrierungstabelle mit linearer Interpolation in der Datei `sensor.cpp`.
+
+### Kalibrierungstabelle ändern (`sensor.cpp`)
+
+Öffne `sensor.cpp` und passe das Array `calibTable` an dein Sensor-Modell und dein Tankvolumen an:
+
+```cpp
+static const CalibPoint calibTable[] = {
+    // Volt , Liter
+    {0.130f,   0.0f},
+    {0.137f,  10.0f},
+    {0.973f,  20.0f},
+    {1.040f,  30.0f},
+    {1.350f,  40.0f},
+    {1.515f,  50.0f},
+    {1.770f,  60.0f},
+    {2.178f,  80.0f},
+    {2.386f, 100.0f}
+};
+
 ## Home Assistant Integration
 
 Das Modul meldet sich automatisch über MQTT Discovery in Home Assistant an und stellt folgende Entitäten bereit:
