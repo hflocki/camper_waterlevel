@@ -20,7 +20,7 @@ void wifiManagerInit() {
     WiFi.mode(WIFI_OFF);
     delay(500);
     
-    // WiFi Power-Save global deaktivieren (verhindert Disconnects unter Last)
+    // Disable WiFi power save globally (prevents disconnects under load)
     WiFi.setSleep(WIFI_PS_NONE);
     
     if (strlen(config.wifi_ssid) > 0) {
@@ -110,7 +110,7 @@ void wifiManagerLoop() {
         case WIFI_STATE_RECONNECTING:
             if (WiFi.status() == WL_CONNECTED) {
                 Serial.printf("[WiFi] Reconnected! RSSI: %d\n", WiFi.RSSI());
-                WiFi.setSleep(WIFI_PS_NONE);  // Power-Save erneut aus nach Reconnect
+                WiFi.setSleep(WIFI_PS_NONE);  // Disable power save again after reconnect
                 wifiState = WIFI_STATE_CONNECTED;
             } else if (millis() - lastReconnectAttempt > SINGLE_ATTEMPT_TIMEOUT) {
                 Serial.println("[WiFi] Reconnect timeout — retry...");
