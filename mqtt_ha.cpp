@@ -12,7 +12,6 @@ static unsigned long lastPublish = 0;[cite: 3]
 static unsigned long lastReconnect = 0;[cite: 3]
 static bool discoveryPublished = false;[cite: 3]
 
-// Forward declarations
 static void mqttCallback(char* topic, byte* payload, unsigned int length);[cite: 3]
 static void publishSensor(const char* name, const char* id, const char* unit, 
                           const char* devClass, const char* icon, const char* valueTpl);[cite: 3]
@@ -38,7 +37,7 @@ void mqttLoop() {
     if (!mqtt.connected()) {[cite: 3]
         if (millis() - lastReconnect > 2000) {[cite: 3]
             lastReconnect = millis();[cite: 3]
-            Serial.println("[MQTT] Attempting connection...");[cite: 3]
+            Serial.println("[MQTT] Connection attempt...");[cite: 3]
             
             String clientId = "camper-waterlevel-" + WiFi.macAddress();
             clientId.replace(":", "");
